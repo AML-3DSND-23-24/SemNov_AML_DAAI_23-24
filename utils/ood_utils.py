@@ -10,6 +10,9 @@ from sklearn import metrics as skm
 from utils.ood_metrics import calc_metrics
 from tqdm import tqdm
 
+#Added
+from collections import defaultdict 
+
 try:
     # flag for disabling TQDM during evaluation!
     DISABLE_TQDM = bool(os.environ['NO_TQDM'])
@@ -455,8 +458,16 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
         print(f"AUROC - Src label: {src_label}, Tar label: {tar_label}")
 
     src_conf, src_preds, src_labels = scores_list[0], preds_list[0], labels_list[0]
-    tar1_conf, _, _ = scores_list[1], preds_list[1], labels_list[1]
-    tar2_conf, _, _ = scores_list[2], preds_list[2], labels_list[2]
+    tar1_conf, tar1_preds, tar1_labels = scores_list[1], preds_list[1], labels_list[1]
+    tar2_conf, tar2_preds, tar2_labels = scores_list[2], preds_list[2], labels_list[2]
+
+    misclassified = defaultdict(lambda: defaultdict(int))
+
+    for i, _ in enumerate(src_conf):
+        if src_preds[i] != src_labels[i]:
+            misclassified[src_labels][src_preds] += 1
+
+    print(misclassified)
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1

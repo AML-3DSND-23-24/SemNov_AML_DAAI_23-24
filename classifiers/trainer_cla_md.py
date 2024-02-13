@@ -210,8 +210,8 @@ def eval_ood_md2sonn(opt, config):
     model = model.cuda().eval()
 
     src_logits, src_pred, src_labels = get_network_output(model, id_loader)
-    tar1_logits, _, _ = get_network_output(model, ood1_loader)
-    tar2_logits, _, _ = get_network_output(model, ood2_loader)
+    tar1_logits, tar1_pred, tar1_labels = get_network_output(model, ood1_loader)
+    tar2_logits, tar2_pred, tar2_labels = get_network_output(model, ood2_loader)
 
     # MSP
     print("\n" + "#" * 80)
@@ -221,8 +221,8 @@ def eval_ood_md2sonn(opt, config):
     tar2_MSP_scores = F.softmax(tar2_logits, dim=1).max(1)[0]
     eval_ood_sncore(
         scores_list=[src_MSP_scores, tar1_MSP_scores, tar2_MSP_scores],
-        preds_list=[src_pred, None, None],  # computes also MSP accuracy on ID test set
-        labels_list=[src_labels, None, None],  # computes also MSP accuracy on ID test set
+        preds_list=[src_pred, tar1_pred, tar1_labels],  # computes also MSP accuracy on ID test set
+        labels_list=[src_labels, tar2_pred, tar2_labels],  # computes also MSP accuracy on ID test set
         src_label=1)
     print("#" * 80)
 
