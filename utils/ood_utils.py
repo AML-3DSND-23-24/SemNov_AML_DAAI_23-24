@@ -461,13 +461,29 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     tar1_conf, tar1_preds, tar1_labels = scores_list[1], preds_list[1], labels_list[1]
     tar2_conf, tar2_preds, tar2_labels = scores_list[2], preds_list[2], labels_list[2]
 
+    np_conf = tuple(np.array(src_conf.cpu()))
+    np_labels = tuple(np.array(src_labels.cpu()))
+    np_preds = tuple(np.array(src_preds.cpu()))
+ 
     misclassified = defaultdict(lambda: defaultdict(int))
+    print(len(np_conf))
+    print(type(np_conf))
+    for i, _ in enumerate(np_conf):
+        if np_preds[i] != np_labels[i]:
+            misclassified[np_labels[i]][np_preds[i]] += 1
 
-    for i, _ in enumerate(src_conf):
-        if src_preds[i] != src_labels[i]:
-            misclassified[src_labels][src_preds] += 1
+    dic_sr1 = {
+      0: "chair",  # chair
+      1: "shelf",  # shelf
+      2: "door",  # door
+      3: "sink",  # sink
+      4: "sofa"  # sofa
+    }
 
-    print(misclassified)
+    for dick in misclassified.keys():
+        print("CATEGORIA",dic_sr1[dick])
+        for micro_dick in misclassified[dick].keys():
+            print(dic_sr1[micro_dick],":",misclassified[dick][micro_dick])
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1
