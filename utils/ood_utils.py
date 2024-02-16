@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 #Added
 from collections import defaultdict 
+import csv
 
 try:
     # flag for disabling TQDM during evaluation!
@@ -436,8 +437,57 @@ def get_ood_metrics(src_scores, tar_scores, src_label=1):
     scores = np.concatenate([src_scores, tar_scores], axis=0)
     return calc_metrics(scores, labels)
 
+def get_acc_per_class(conf,labels,preds,src,postfix):
 
-def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False):
+    dic_sr1 = {
+      0: "chair",
+      1: "shelf",
+      2: "door", 
+      3: "sink", 
+      4: "sofa"  
+    }
+
+    dic_sr2 = {
+      0: "bed",  
+      1: "toilet",  
+      2: "desk+table",
+      3: "display",  
+    }
+
+    dic_ood_common = {  # Need to change in scanobject.py
+        0: 404,  # bag
+        1: 404,  # bin
+        2: 404,  # box
+        3: 404,  # cabinet
+        11: 404  # pillow
+    }
+
+    dic = {"SR1":dic_sr1, "SR2":dic_sr2, "ood_common":dic_ood_common}
+
+    np_conf = tuple(np.array(conf.cpu()))
+    np_labels = tuple(np.array(labels.cpu()))
+    np_preds = tuple(np.array(preds.cpu()))
+
+    misclassified = defaultdict(lambda: defaultdict(list(float)))  #Class -> (Pred_Tot,Conf_Tot) COUNTER!!!
+    tot = defaultdict(int)
+
+    for i, _ in enumerate(np_conf):
+        misclassified[np_labels[i]][np_preds[i]][0] += 1
+        misclassified[np_labels[i]][np_preds[i]][1] += np_conf[i]
+        tot[np_labels[i]] += 1
+
+    # open the file in the write mode
+    with open(f"{src}"+"_"+f"{postfix}", 'w', encoding='UTF8') as f:
+        # create the csv writer
+        writer = csv.writer(f)
+
+        writer.writerow(["Class", "Prediction", "Avg_Conf" , "Pred_Tot", "Class_Tot"])
+        for dick in misclassified.keys():
+            for micro_dick in misclassified[dick].keys():
+                writer.writerow([dic[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/tot[dick]
+                ,misclassified[dick][micro_dick][0],tot[dick]])
+
+def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_"):
     """
     conf_list: [SRC, TAR1, TAR2]
     preds_list: [SRC, TAR1, TAR2]
@@ -445,6 +495,7 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     src_label: label for known samples when computing AUROC
     silent: if True does not print anything
     """
+
 
     if labels_list is None:
         labels_list = [None, None, None]
@@ -461,29 +512,13 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     tar1_conf, tar1_preds, tar1_labels = scores_list[1], preds_list[1], labels_list[1]
     tar2_conf, tar2_preds, tar2_labels = scores_list[2], preds_list[2], labels_list[2]
 
-    np_conf = tuple(np.array(src_conf.cpu()))
-    np_labels = tuple(np.array(src_labels.cpu()))
-    np_preds = tuple(np.array(src_preds.cpu()))
- 
-    misclassified = defaultdict(lambda: defaultdict(int))
-    print(len(np_conf))
-    print(type(np_conf))
-    for i, _ in enumerate(np_conf):
-        if np_preds[i] != np_labels[i]:
-            misclassified[np_labels[i]][np_preds[i]] += 1
-
-    dic_sr1 = {
-      0: "chair",  # chair
-      1: "shelf",  # shelf
-      2: "door",  # door
-      3: "sink",  # sink
-      4: "sofa"  # sofa
-    }
-
-    for dick in misclassified.keys():
-        print("CATEGORIA",dic_sr1[dick])
-        for micro_dick in misclassified[dick].keys():
-            print(dic_sr1[micro_dick],":",misclassified[dick][micro_dick])
+    if src != "_":
+        get_acc_per_class(src_conf,src_labels,src_preds,src,"id")
+        if src == "SR1":
+            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,"SR2","ood1")
+        elif src == "SR2":
+            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,"SR1","ood1")
+        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,"ood_common","ood2")    
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1
