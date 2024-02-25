@@ -221,8 +221,8 @@ def eval_ood_md2sonn(opt, config):
     tar2_MSP_scores = F.softmax(tar2_logits, dim=1).max(1)[0]
     eval_ood_sncore(
         scores_list=[src_MSP_scores, tar1_MSP_scores, tar2_MSP_scores],
-        preds_list=[src_pred, tar1_pred, tar1_labels],  # computes also MSP accuracy on ID test set
-        labels_list=[src_labels, tar2_pred, tar2_labels],  # computes also MSP accuracy on ID test set
+        preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
+        labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
         src_label=1,
         src = opt.src)
     print("#" * 80)

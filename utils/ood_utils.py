@@ -437,8 +437,8 @@ def get_ood_metrics(src_scores, tar_scores, src_label=1):
     scores = np.concatenate([src_scores, tar_scores], axis=0)
     return calc_metrics(scores, labels)
 
-def get_acc_per_class(conf,labels,preds,src,postfix):
-
+def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
+    print(f"{src} over {rocco_dict} as {postfix}")
     dic_sr1 = {
       0: "chair",
       1: "shelf",
@@ -454,21 +454,25 @@ def get_acc_per_class(conf,labels,preds,src,postfix):
       3: "display",  
     }
 
-    dic_ood_common = {  # Need to change in scanobject.py
-        0: 404,  # bag
-        1: 404,  # bin
-        2: 404,  # box
-        3: 404,  # cabinet
-        11: 404  # pillow
+    dic_ood_common = {
+      0: "_bag",      # bag
+      1: "_bin",      # bin
+      2: "_box",      # box
+      3: "_cabinet",  # cabinet
+      4: "_pillow"   # pillow
     }
 
-    dic = {"SR1":dic_sr1, "SR2":dic_sr2, "ood_common":dic_ood_common}
+    dictionaries = {"SR1":dic_sr1, "SR2":dic_sr2, "ood_common":dic_ood_common}
+    dic = dictionaries[src]
+    ground_truth = dictionaries[rocco_dict] 
 
     np_conf = tuple(np.array(conf.cpu()))
     np_labels = tuple(np.array(labels.cpu()))
     np_preds = tuple(np.array(preds.cpu()))
 
-    misclassified = defaultdict(lambda: defaultdict(list(float)))  #Class -> (Pred_Tot,Conf_Tot) COUNTER!!!
+    print(np_labels)
+
+    misclassified = defaultdict(lambda: defaultdict(lambda: [0, 0.0]))  #Class -> (Pred_Tot,Conf_Tot) COUNTER!!!
     tot = defaultdict(int)
 
     for i, _ in enumerate(np_conf):
@@ -477,14 +481,18 @@ def get_acc_per_class(conf,labels,preds,src,postfix):
         tot[np_labels[i]] += 1
 
     # open the file in the write mode
-    with open(f"{src}"+"_"+f"{postfix}", 'w', encoding='UTF8') as f:
+    with open(f"{src}"+"_"+f"{postfix}.csv", 'w', encoding='UTF8') as f:
         # create the csv writer
         writer = csv.writer(f)
 
         writer.writerow(["Class", "Prediction", "Avg_Conf" , "Pred_Tot", "Class_Tot"])
         for dick in misclassified.keys():
             for micro_dick in misclassified[dick].keys():
-                writer.writerow([dic[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/tot[dick]
+              print(dic)
+              print(dick)
+              print(type(dick))
+              a = dic[dick]
+              writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/tot[dick]
                 ,misclassified[dick][micro_dick][0],tot[dick]])
 
 def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_"):
@@ -513,12 +521,12 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     tar2_conf, tar2_preds, tar2_labels = scores_list[2], preds_list[2], labels_list[2]
 
     if src != "_":
-        get_acc_per_class(src_conf,src_labels,src_preds,src,"id")
+        get_acc_per_class(src_conf,src_labels,src_preds,src,src,"id")
         if src == "SR1":
-            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,"SR2","ood1")
+            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR2","ood1")
         elif src == "SR2":
-            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,"SR1","ood1")
-        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,"ood_common","ood2")    
+            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR1","ood1")
+        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,src,"ood_common","ood2")    
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1
