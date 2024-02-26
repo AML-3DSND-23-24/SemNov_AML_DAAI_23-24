@@ -227,11 +227,38 @@ def eval_ood_md2sonn(opt, config):
         src = opt.src)
     print("#" * 80)
 
+    # MLS
+    print("\n" + "#" * 80)
+    print("Computing OOD metrics with MLS normality score...")
+    src_MLS_scores = src_logits.max(1)[0]
+    tar1_MLS_scores = tar1_logits.max(1)[0]
+    tar2_MLS_scores = tar2_logits.max(1)[0]
+    eval_ood_sncore(
+        scores_list=[src_MLS_scores, tar1_MLS_scores, tar2_MLS_scores],
+        preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
+        labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
+        src_label=1,
+        src = opt.src)
+    print("#" * 80)
+
+    # entropy
+    print("\n" + "#" * 80)
+    src_entropy_scores = 1 / logits_entropy_loss(src_logits)
+    tar1_entropy_scores = 1 / logits_entropy_loss(tar1_logits)
+    tar2_entropy_scores = 1 / logits_entropy_loss(tar2_logits)
+    print("Computing OOD metrics with entropy normality score...")
+    eval_ood_sncore(
+        scores_list=[src_entropy_scores, tar1_entropy_scores, tar2_entropy_scores],
+        preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
+        labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
+        src_label=1,
+        src = opt.src)
+    print("#" * 80)
+
     # FEATURES EVALUATION
-    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats)
+    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src)
 
-
-def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None):
+def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_"):
     from knn_cuda import KNN
     knn = KNN(k=1, transpose_mode=True)
 
@@ -295,11 +322,33 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
         scores_list=[src_scores, tar1_scores, tar2_scores],
         preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
         labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
-        src_label=1  # confidence should be higher for ID samples
+        src_label=1,  # confidence should be higher for ID samples
+        src = src
     )
 
     print("#" * 80)
 
+    ################################################
+    print("\nCosine similarities on the hypersphere:")
+    # cosine sim in a normalized space
+    train_feats = F.normalize(train_feats, p=2, dim=1)
+    src_feats = F.normalize(src_feats, p=2, dim=1)
+    tar1_feats = F.normalize(tar1_feats, p=2, dim=1)
+    tar2_feats = F.normalize(tar2_feats, p=2, dim=1)
+    src_scores, src_ids = torch.mm(src_feats, train_feats.t()).max(1)
+    tar1_scores, tar1_ids = torch.mm(tar1_feats, train_feats.t()).max(1)
+    tar2_scores, tar2_ids = torch.mm(tar2_feats, train_feats.t()).max(1)
+    src_pred = np.asarray([train_labels[i] for i in src_ids])  # pred is label of nearest training sample
+    tar1_pred = np.asarray([train_labels[i] for i in tar1_ids])  # pred is label of nearest training sample
+    tar2_pred = np.asarray([train_labels[i] for i in tar2_ids])  # pred is label of nearest training sample
+
+    eval_ood_sncore(
+        scores_list=[(0.5 * src_scores + 0.5).cpu(), (0.5 * tar1_scores + 0.5).cpu(), (0.5 * tar2_scores + 0.5).cpu()],
+        preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
+        labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
+        src_label=1,  # confidence should be higher for ID samples
+        src = src
+    )
 
 def main():
     args = get_args()

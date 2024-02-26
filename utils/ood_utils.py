@@ -466,9 +466,9 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
     dic = dictionaries[src]
     ground_truth = dictionaries[rocco_dict] 
 
-    np_conf = tuple(np.array(conf.cpu()))
-    np_labels = tuple(np.array(labels.cpu()))
-    np_preds = tuple(np.array(preds.cpu()))
+    np_conf = to_numpy(conf)
+    np_labels = to_numpy(labels)
+    np_preds = to_numpy(preds)
 
     print(np_labels)
 
@@ -481,7 +481,7 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
         tot[np_labels[i]] += 1
 
     # open the file in the write mode
-    with open(f"{src}"+"_"+f"{postfix}.csv", 'w', encoding='UTF8') as f:
+    with open(f"{src}"+"_"+f"{postfix}.csv", 'a', encoding='UTF8') as f:
         # create the csv writer
         writer = csv.writer(f)
 
@@ -526,7 +526,9 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
             get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR2","ood1")
         elif src == "SR2":
             get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR1","ood1")
-        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,src,"ood_common","ood2")    
+        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,src,"ood_common","ood2")
+    else:
+      assert "ERRORE"    
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1
