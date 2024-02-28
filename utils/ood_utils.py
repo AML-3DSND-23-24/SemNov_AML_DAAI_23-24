@@ -488,10 +488,6 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
         writer.writerow(["Class", "Prediction", "Avg_Conf" , "Pred_Tot", "Class_Tot"])
         for dick in misclassified.keys():
             for micro_dick in misclassified[dick].keys():
-              print(dic)
-              print(dick)
-              print(type(dick))
-              a = dic[dick]
               writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/tot[dick]
                 ,misclassified[dick][micro_dick][0],tot[dick]])
 
