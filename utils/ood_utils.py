@@ -491,8 +491,7 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
               print(dic)
               print(dick)
               print(type(dick))
-              a = dic[dick]
-              writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/tot[dick]
+              writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/misclassified[dick][micro_dick][0]
                 ,misclassified[dick][micro_dick][0],tot[dick]])
 
 def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_"):
