@@ -8,6 +8,7 @@ import os.path as osp
 import time
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
+
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -277,35 +278,38 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
     pc_encoder = openshape.load_pc_encoder('openshape-pointbert-vitg14-rgb')
     f32 = np.float32
 
-    def load_xyzrgb(npy):
-        # load the model
-        if npy is not None:
-            pc: np.ndarray = np.loadtxt(npy, delimiter=',')
-        else:
-            raise ValueError("You have to supply 3D input!")
-        assert pc.ndim == 2, "invalid pc shape: ndim = %d != 2" % pc.ndim
-        assert pc.shape[1] in [3, 6], "invalid pc shape: should have 3/6 channels, got %d" % pc.shape[1]
-        pc = pc.astype(f32)
-        # if swap_yz_axes:
-        #     pc[:, [1, 2]] = pc[:, [2, 1]]
-        pc[:, :3] = pc[:, :3] - np.mean(pc[:, :3], axis=0)
-        pc[:, :3] = pc[:, :3] / np.linalg.norm(pc[:, :3], axis=-1).max()
-        if pc.shape[1] == 3:
-            pc = np.concatenate([pc, np.ones_like(pc) * 0.4], axis=-1)
-        if pc.shape[0] >= 10000:
-            pc = pc[np.random.permutation(len(pc))[:10000]]
-        elif pc.shape[0] == 0:
-            raise ValueError("Got empty point cloud!")
-        elif pc.shape[0] < 10000:
-            pc = np.concatenate([pc, pc[np.random.randint(len(pc), size=[10000 - len(pc)])]])
-        return pc.astype(f32)
+    #def load_xyzrgb(npy):
+    #    # load the model
+    #    if npy is not None:
+    #        pc: np.ndarray = np.loadtxt(npy, delimiter=',')
+    #    else:
+    #        raise ValueError("You have to supply 3D input!")
+    #    assert pc.ndim == 2, "invalid pc shape: ndim = %d != 2" % pc.ndim
+    #    assert pc.shape[1] in [3, 6], "invalid pc shape: should have 3/6 channels, got %d" % pc.shape[1]
+    #    pc = pc.astype(f32)
+    #    # if swap_yz_axes:
+    #    #     pc[:, [1, 2]] = pc[:, [2, 1]]
+    #    pc[:, :3] = pc[:, :3] - np.mean(pc[:, :3], axis=0)
+    #    pc[:, :3] = pc[:, :3] / np.linalg.norm(pc[:, :3], axis=-1).max()
+    #    if pc.shape[1] == 3:
+    #        pc = np.concatenate([pc, np.ones_like(pc) * 0.4], axis=-1)
+    #    if pc.shape[0] >= 10000:
+    #        pc = pc[np.random.permutation(len(pc))[:10000]]
+    #    elif pc.shape[0] == 0:
+    #        raise ValueError("Got empty point cloud!")
+    #    elif pc.shape[0] < 10000:
+    #        pc = np.concatenate([pc, pc[np.random.randint(len(pc), size=[10000 - len(pc)])]])
+    #    return pc.astype(f32)
 
     #pc_encoder(torch.tensor(pc[:, [0, 2, 1, 3, 4, 5]].T[None], device=ref_dev)).cpu()
-    train_feats, train_labels = [ pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1] for batch in train_loader]
+    train_feats, train_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in train_loader])
+    src_feats, src_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in src_loader])
+    tar1_feats, tar1_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in tar1_loader])
+    tar2_feats, tar2_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in tar2_loader])
     #train_feats, train_labels = get_penultimate_feats(model, train_loader)
-    src_feats, src_labels = get_penultimate_feats(model, src_loader)
-    tar1_feats, tar1_labels = get_penultimate_feats(model, tar1_loader)
-    tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
+    #src_feats, src_labels = get_penultimate_feats(model, src_loader)
+    #tar1_feats, tar1_labels = get_penultimate_feats(model, tar1_loader)
+    #tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
     train_labels = train_labels.cpu().numpy()
 
     labels_set = set(train_labels)
