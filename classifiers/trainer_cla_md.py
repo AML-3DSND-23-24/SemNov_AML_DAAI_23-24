@@ -6,9 +6,9 @@ import numpy as np
 sys.path.append(os.getcwd())
 import os.path as osp
 import time
+import torch
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
-
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -28,6 +28,12 @@ from sklearn.metrics import accuracy_score, balanced_accuracy_score
 from models.common import convert_model_state, logits_entropy_loss
 from models.ARPL_utils import Generator, Discriminator
 from classifiers.common import train_epoch_cla, train_epoch_rsmix_exposure, train_epoch_cs
+
+# COPILOT MADE THE TRICK: 
+#  clone the openshape-demo-support in the same directory of 3dos
+#  run pip install .
+#  import will not work: hover with mouse and click on the lightbulb to fix by adding the path to the sys.path
+#import openshape 
 
 
 def get_args():
@@ -60,7 +66,10 @@ def get_args():
                         type=str, default=None, help="type of corrupted data (lidar,occlusion,all) - default is None")
     args = parser.parse_args()
 
-    args.data_root = os.path.expanduser(args.data_root)
+    #args.data_root = os.path.expanduser(args.data_root)
+    args.data_root = osp.abspath("3D_OS_release_data")
+    assert os.path.exists(args.data_root)
+    print(f"Data root: {args.data_root}")
     args.tar1 = "none"
     args.tar2 = "none"
 
@@ -200,9 +209,13 @@ def eval_ood_md2sonn(opt, config):
     # these are the samples from SONN categories with poor mapping to ModelNet categories
     ood2_loader = DataLoader(ScanObject(class_choice="sonn_ood_common", **sonn_args), **dataloader_config)
 
+    
     classes_dict = eval(opt.src)
     n_classes = len(set(classes_dict.values()))
     model = Classifier(args=DotConfig(config['model']), num_classes=n_classes, loss=opt.loss, cs=opt.cs)
+    model = model.cuda().eval() # Duplicated
+    #model.eval
+    """
     ckt_weights = torch.load(opt.ckpt_path, map_location='cpu')['model']
     ckt_weights = sanitize_model_dict(ckt_weights)
     ckt_weights = convert_model_state(ckt_weights, model.state_dict())
@@ -256,8 +269,27 @@ def eval_ood_md2sonn(opt, config):
         src = opt.src)
     print("#" * 80)
 
+    """
+
     # FEATURES EVALUATION
     eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src)
+
+def L_k_norm(features1, features2, k):
+    return torch.sum(torch.abs(features1 - features2) ** k, dim=-1) ** (1 / k)
+
+def knn_custom(train_feats, src_feats, k, norm_k):
+    num_src = src_feats.size(0)
+    num_train = train_feats.size(0)
+    
+    distances = torch.zeros((num_src, num_train))
+    
+    for i in range(num_src):
+        distances[i] = L_k_norm(train_feats, src_feats[i].unsqueeze(0).repeat(num_train, 1), norm_k)
+    
+    # Trova i k-nearest neighbors
+    src_dist, src_ids = torch.topk(distances, k, dim=1, largest=False)
+    
+    return src_dist, src_ids
 
 def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_"):
     from knn_cuda import KNN
@@ -274,97 +306,98 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
     # tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
 
     #STEP 4 PATH:
-    import openshape
-    pc_encoder = openshape.load_pc_encoder('openshape-pointbert-vitg14-rgb')
-    f32 = np.float32
-
-    #def load_xyzrgb(npy):
-    #    # load the model
-    #    if npy is not None:
-    #        pc: np.ndarray = np.loadtxt(npy, delimiter=',')
-    #    else:
-    #        raise ValueError("You have to supply 3D input!")
-    #    assert pc.ndim == 2, "invalid pc shape: ndim = %d != 2" % pc.ndim
-    #    assert pc.shape[1] in [3, 6], "invalid pc shape: should have 3/6 channels, got %d" % pc.shape[1]
-    #    pc = pc.astype(f32)
-    #    # if swap_yz_axes:
-    #    #     pc[:, [1, 2]] = pc[:, [2, 1]]
-    #    pc[:, :3] = pc[:, :3] - np.mean(pc[:, :3], axis=0)
-    #    pc[:, :3] = pc[:, :3] / np.linalg.norm(pc[:, :3], axis=-1).max()
-    #    if pc.shape[1] == 3:
-    #        pc = np.concatenate([pc, np.ones_like(pc) * 0.4], axis=-1)
-    #    if pc.shape[0] >= 10000:
-    #        pc = pc[np.random.permutation(len(pc))[:10000]]
-    #    elif pc.shape[0] == 0:
-    #        raise ValueError("Got empty point cloud!")
-    #    elif pc.shape[0] < 10000:
-    #        pc = np.concatenate([pc, pc[np.random.randint(len(pc), size=[10000 - len(pc)])]])
-    #    return pc.astype(f32)
-
+    
     #pc_encoder(torch.tensor(pc[:, [0, 2, 1, 3, 4, 5]].T[None], device=ref_dev)).cpu()
-    train_feats, train_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in train_loader])
-    src_feats, src_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in src_loader])
-    tar1_feats, tar1_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in tar1_loader])
-    tar2_feats, tar2_labels = zip(*[ (pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1]) for batch in tar2_loader])
-    #train_feats, train_labels = get_penultimate_feats(model, train_loader)
-    #src_feats, src_labels = get_penultimate_feats(model, src_loader)
-    #tar1_feats, tar1_labels = get_penultimate_feats(model, tar1_loader)
-    #tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
+    #train_feats, train_labels = [ pc_encoder(torch.tensor(batch[0][:, [0, 2, 1, 3, 4, 5]].T[None],device=next(pc_encoder.parameters()).device)).cpu(), batch[1] for batch in train_loader]
+    
+    
+    src_feats, src_labels = get_penultimate_feats(model, src_loader)
+    train_feats, train_labels = get_penultimate_feats(model, train_loader)
+
+
+    tar1_feats, tar1_labels = get_penultimate_feats(model, tar1_loader)
+    tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
     train_labels = train_labels.cpu().numpy()
 
-    labels_set = set(train_labels)
-    prototypes = torch.zeros((len(labels_set), train_feats.shape[1]), device=train_feats.device)
-    for idx, lbl in enumerate(labels_set):
-        mask = train_labels == lbl
-        prototype = train_feats[mask].mean(0)
-        prototypes[idx] = prototype
+    # labels_set = set(train_labels)
+    # prototypes = torch.zeros((len(labels_set), train_feats.shape[1]), device=train_feats.device)
+    # for idx, lbl in enumerate(labels_set):
+    #     mask = train_labels == lbl
+    #     prototype = train_feats[mask].mean(0)
+    #     prototypes[idx] = prototype
 
-    if save_feats is not None:
-        if isinstance(train_loader.dataset, ModelNet40_OOD):
-            labels_2_names = {v: k for k, v in train_loader.dataset.class_choice.items()}
-        else:
-            labels_2_names = {}
+    # if save_feats is not None:
+    #     if isinstance(train_loader.dataset, ModelNet40_OOD):
+    #         labels_2_names = {v: k for k, v in train_loader.dataset.class_choice.items()}
+    #     else:
+    #         labels_2_names = {}
 
-        output_dict = {}
-        output_dict["labels_2_names"] = labels_2_names
-        output_dict["train_feats"], output_dict["train_labels"] = train_feats.cpu(), train_labels
-        output_dict["id_data_feats"], output_dict["id_data_labels"] = src_feats.cpu(), src_labels
-        output_dict["ood1_data_feats"], output_dict["ood1_data_labels"] = tar1_feats.cpu(), tar1_labels
-        output_dict["ood2_data_feats"], output_dict["ood2_data_labels"] = tar2_feats.cpu(), tar2_labels
-        torch.save(output_dict, save_feats)
-        print(f"Features saved to {save_feats}")
+    #     output_dict = {}
+    #     output_dict["labels_2_names"] = labels_2_names
+    #     output_dict["train_feats"], output_dict["train_labels"] = train_feats.cpu(), train_labels
+    #     output_dict["id_data_feats"], output_dict["id_data_labels"] = src_feats.cpu(), src_labels
+    #     output_dict["ood1_data_feats"], output_dict["ood1_data_labels"] = tar1_feats.cpu(), tar1_labels
+    #     output_dict["ood2_data_feats"], output_dict["ood2_data_labels"] = tar2_feats.cpu(), tar2_labels
+    #     torch.save(output_dict, save_feats)
+    #     print(f"Features saved to {save_feats}")
 
     ################################################
+
+    
     print("Euclidean distances in a non-normalized space:")
     # eucl distance in a non-normalized space
-    src_dist, src_ids = knn(train_feats.unsqueeze(0), src_feats.unsqueeze(0))
+    
+    # Calcola i k-NN utilizzando la distanza L0.1
+    norm_k = 1
+    k = 1  # Numero di vicini da considerare, in questo caso 1 per nearest neighbor
+    
+    train_feats = train_feats.cuda()
+    
+    src_feats = src_feats.cuda()
+    src_dist, src_ids = knn_custom(train_feats, src_feats, k, norm_k)
+    
+    # Porta i risultati in CPU
     src_dist = src_dist.squeeze().cpu()
-    src_ids = src_ids.squeeze().cpu()  # index of nearest training sample
-    src_scores = 1 / src_dist
-    src_pred = np.asarray([train_labels[i] for i in src_ids])  # pred is label of nearest training sample
+    src_ids = src_ids.squeeze().cpu()  # Indici dei nearest training samples
+    src_scores = 1 / src_dist  # Punteggi inversamente proporzionali alla distanza
+    src_pred = np.asarray([train_labels[i] for i in src_ids])  # Predizione basata sull'etichetta del nearest training sample
 
     # OOD tar1
-    tar1_dist, tar1_ids = knn(train_feats.unsqueeze(0), tar1_feats.unsqueeze(0))
+    tar1_feats = tar1_feats.cuda()
+    tar1_dist, tar1_ids = knn_custom(train_feats, tar1_feats, k, norm_k)
+
+    # Porta i risultati in CPU
     tar1_dist = tar1_dist.squeeze().cpu()
-    tar1_ids = tar1_ids.squeeze().cpu()  # index of nearest training sample
-    tar1_scores = 1 / tar1_dist
-    tar1_pred = np.asarray([train_labels[i] for i in tar1_ids])  # pred is label of nearest training sample
+    tar1_ids = tar1_ids.squeeze().cpu()  # Indici dei nearest training samples
+    tar1_scores = 1 / tar1_dist  # Punteggi inversamente proporzionali alla distanza
+    tar1_pred = np.asarray([train_labels[i] for i in tar1_ids])  # Predizione basata sull'etichetta del nearest training sample
 
     # OOD tar2
-    tar2_dist, tar2_ids = knn(train_feats.unsqueeze(0), tar2_feats.unsqueeze(0))
-    tar2_dist = tar2_dist.squeeze().cpu()
-    tar2_ids = tar2_ids.squeeze().cpu()  # index of nearest training sample
-    tar2_scores = 1 / tar2_dist
-    tar2_pred = np.asarray([train_labels[i] for i in tar2_ids])  # pred is label of nearest training sample
+    tar2_feats = tar2_feats.cuda()
+    tar2_dist, tar2_ids = knn_custom(train_feats, tar2_feats, k, norm_k)
 
+    # Porta i risultati in CPU
+    tar2_dist = tar2_dist.squeeze().cpu()
+    tar2_ids = tar2_ids.squeeze().cpu()  # Indici dei nearest training samples
+    tar2_scores = 1 / tar2_dist  # Punteggi inversamente proporzionali alla distanza
+    tar2_pred = np.asarray([train_labels[i] for i in tar2_ids])  # Predizione basata sull'etichetta del nearest training sample
 
     eval_ood_sncore(
-        scores_list=[src_scores, tar1_scores, tar2_scores],
-        preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
-        labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
-        src_label=1,  # confidence should be higher for ID samples
-        src = src
+         scores_list=[src_scores, tar1_scores, tar2_scores],
+         preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
+         labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
+         src_label=1,  # confidence should be higher for ID samples
+         src=src
     )
+
+    # eval_ood_sncore(
+    #     scores_list=[src_scores, tar1_scores, tar2_scores],
+    #     preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
+    #     labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
+    #     src_label=1  # confidence should be higher for ID samples
+    # )
+
+    """
 
     print("#" * 80)
 
@@ -389,6 +422,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
         src_label=1,  # confidence should be higher for ID samples
         src = src
     )
+    """
 
 def main():
     args = get_args()
@@ -403,10 +437,10 @@ def main():
         args.tb_dir = osp.join(args.checkpoints_dir, args.exp_name, "tb-logs")
         args.models_dir = osp.join(args.checkpoints_dir, args.exp_name, "models")
         args.backup_dir = osp.join(args.checkpoints_dir, args.exp_name, "backup-code")
-        train(args, config)
+        #train(args, config)
     else:
         # eval Modelnet -> SONN
-        assert args.ckpt_path is not None and len(args.ckpt_path)
+        # assert args.ckpt_path is not None and len(args.ckpt_path)
         print("out-of-distribution eval - Modelnet -> SONN ..")
         eval_ood_md2sonn(args, config)
 
