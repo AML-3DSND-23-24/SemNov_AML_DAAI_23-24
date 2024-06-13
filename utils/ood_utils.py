@@ -28,7 +28,7 @@ def print_ood_output(res_tar1, res_tar2, res_big_tar):
     auroc3, fpr3, auprin3, auprout3 = res_big_tar['auroc'], res_big_tar['fpr_at_95_tpr'], res_big_tar['aupr_in'], res_big_tar['aupr_out']
     print(f"SRC->TAR1:      AUROC: {auroc1:.4f}, FPR95: {fpr1:.4f}, AUPR_IN: {auprin1:.4f}, AUPR_OUT: {auprout1:.4f}")
     print(f"SRC->TAR2:      AUROC: {auroc2:.4f}, FPR95: {fpr2:.4f}, AUPR_IN: {auprin2:.4f}, AUPR_OUT: {auprout2:.4f}")
-    print(f"SRC->TAR1+TAR2: AUROC: {auroc3:.4f}, FPR95: {fpr3:.4f}, AUPR_IN: {auprin3:.4f}, AUPR_OUT: {auprout3:.4f}")
+    print(f"SRC->TAR1+TAR2: AUROC: {auroc3:.4f}, FPR95: {fpr3:.4f}, AUPR_IN: {auprin3:.4f}, AUPR_OUT: {auprout3:.4f}")  
 
 
 def cos_sim(a, b, eps=1e-8):
@@ -212,6 +212,7 @@ def get_penultimate_feats(model, loader):
     model.eval()
     for i, batch in enumerate(tqdm(loader, disable=DISABLE_TQDM), 0):
         points, labels = batch[0], batch[1]
+        #print(points.shape)
         assert torch.is_tensor(points), "expected BNC tensor as batch[0]"
         points = points.cuda(non_blocking=True)
         labels = labels.cuda(non_blocking=True)
@@ -232,8 +233,12 @@ def iterate_data_odin(model, loader, epsilon=0.0, temper=1000):
     """
     criterion = torch.nn.CrossEntropyLoss().cuda()
     confs = []
+    all_labels = []
+    all_preds = []
     for batch in tqdm(loader, disable=DISABLE_TQDM):
-        x = batch[0]
+        x, labels = batch[0], batch[1]
+
+        labels = labels.cuda()
 
         x = x.cuda()
         x.requires_grad = True
@@ -261,8 +266,35 @@ def iterate_data_odin(model, loader, epsilon=0.0, temper=1000):
         nnOutputs = np.exp(nnOutputs) / np.sum(np.exp(nnOutputs), axis=1, keepdims=True)
 
         confs.extend(np.max(nnOutputs, axis=1))
+        all_labels.extend(labels)
 
-    return torch.tensor(np.array(confs))
+    print(f"Confidence shape: {confs.shape}, Labels shape: {output_labels.shape}")
+
+    return torch.tensor(np.array(confs)), torch.tensor(np.array(labels))
+
+    all_logits = []
+    all_pred = []
+    all_labels = []
+    model.eval()
+    for i, batch in enumerate(tqdm(loader, disable=DISABLE_TQDM), 0):
+        points, labels = batch[0], batch[1]
+        assert torch.is_tensor(points), "expected BNC tensor as batch[0]"
+        points = points.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
+        logits = model(points)
+        if is_dist() and get_ws() > 1:
+            logits = gather(logits, dim=0)
+            labels = gather(labels, dim=0)
+
+        all_logits.append(logits)
+        probs = F.softmax(logits, 1) if softmax else logits
+        _, pred = logits.data.max(1)
+        all_pred.append(pred)
+        all_labels.append(labels)
+    all_logits = torch.cat(all_logits, dim=0)
+    all_pred = torch.cat(all_pred, dim=0)
+    all_labels = torch.cat(all_labels, dim=0)
+    return all_logits, all_pred, all_labels
 
 
 def iterate_data_energy(model, loader, temper=1):
@@ -469,8 +501,6 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
     np_conf = to_numpy(conf)
     np_labels = to_numpy(labels)
     np_preds = to_numpy(preds)
-
-    print(np_labels)
 
     misclassified = defaultdict(lambda: defaultdict(lambda: [0, 0.0]))  #Class -> (Pred_Tot,Conf_Tot) COUNTER!!!
     tot = defaultdict(int)
