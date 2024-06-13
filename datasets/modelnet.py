@@ -6,6 +6,7 @@ from utils.data_utils import *
 import lmdb
 import msgpack_numpy
 import h5py
+import numpy as np
 
 modelnet40_label_dict = {
     'airplane': 0, 'bathtub': 1, 'bed': 2, 'bench': 3, 'bookshelf': 4, 'bottle': 5, 'bowl': 6,
@@ -213,7 +214,7 @@ class ModelNet40_OOD(data.Dataset):
         # cache
         cache_dir = osp.join(self.data_dir, "ood_sets_cache")  # directory containing cache files
         cache_fn = osp.join(cache_dir, f'{class_choice}_{self.split}.h5')  # path to cache file
-        if os.path.exists(cache_fn):
+        if False : #os.path.exists(cache_fn):
             # read from cache file
             print(f"{self.whoami} - Reading data from h5py file: {cache_fn}")
             f = h5py.File(cache_fn, 'r')
@@ -254,11 +255,16 @@ class ModelNet40_OOD(data.Dataset):
             self.labels = []
             for i in tqdm.trange(len(self.datapath), desc=f"{self.whoami} loading data from txts", dynamic_ncols=True):
                 fn = self.datapath[i]
-                point_set = np.loadtxt(fn[1], delimiter=",").astype(np.float32)
-                point_set = point_set[:, 0:3]  # remove normals
+                pc = np.loadtxt(fn[1], delimiter=",").astype(np.float32)
+                # point_set = point_set[:, 0:3]  # remove normals
+                pc[:, :3] = pc[:, :3] - np.mean(pc[:, :3], axis=0)
+                pc[:, :3] = pc[:, :3] / np.linalg.norm(pc[:, :3], axis=-1).max()
+                if pc.shape[1] == 3:
+                  print("NO RGB")
+                  pc = np.concatenate([pc, np.ones_like(pc) * 0.4], axis=-1)
                 category_name = self.shape_names[i]  # 'airplane'
                 cls = self.class_choice[category_name]
-                self.datas.append(point_set)  # [1, 10000, 3]
+                self.datas.append(pc)  # [1, 10000, 3]
                 self.labels.append(cls)
 
             self.datas = np.stack(self.datas, axis=0)  # [num_samples, 10000, 3]
