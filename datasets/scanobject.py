@@ -51,6 +51,16 @@ sonn_2_mdSet2 = {
 
 # common ood set
 # these are categories with poor mapping between md and sonn
+sonn_ood_common = {
+    0: 0,  # bag
+    1: 1,  # bin
+    2: 2,  # box
+    3: 3,  # cabinet
+    11: 4, # pillow
+}
+
+# # common ood set
+# # these are categories with poor mapping between md and sonn
 # sonn_ood_common = {
 #     0: 404,  # bag
 #     1: 404,  # bin
@@ -58,13 +68,6 @@ sonn_2_mdSet2 = {
 #     3: 404,  # cabinet
 #     11: 404  # pillow
 # }
-sonn_ood_common = {
-    0: 0,  # bag
-    1: 1,  # bin
-    2: 2,  # box
-    3: 3,  # cabinet
-    11: 4  # pillow
-}
 
 
 ################################
@@ -122,7 +125,12 @@ def load_h5_data_label(h5_path):
     curr_data = f['data'][:]
     curr_label = f['label'][:]
     f.close()
-    return np.asarray(curr_data), np.asarray(curr_label)
+    # zeros = np.zeros((curr_data.shape[0], 3))
+    zeros = np.full((curr_data.shape[0], 3), 0.4)
+    print("BEFORE", curr_data.shape)
+    curr_data_with_zeros = np.concatenate((curr_data, zeros), axis=1)
+    print("AFTER", curr_data_with_zeros.shape)
+    return np.asarray(curr_data_with_zeros), np.asarray(curr_label)
 
 
 def load_h5_data_label_list(h5_paths):
@@ -133,6 +141,12 @@ def load_h5_data_label_list(h5_paths):
         curr_data.extend(f['data'][:])
         curr_label.extend(f['label'][:])
         f.close()
+    curr_data = np.asarray(curr_data)
+    print(curr_data.shape)
+    #zeros = np.zeros((curr_data.shape[0], curr_data.shape[1], 3))
+    zeros = np.full((curr_data.shape[0], curr_data.shape[1], 3), 0.4)
+    curr_data = np.concatenate((curr_data, zeros), axis=2)
+    print(curr_data.shape)
     return np.asarray(curr_data), np.asarray(curr_label)
 
 
