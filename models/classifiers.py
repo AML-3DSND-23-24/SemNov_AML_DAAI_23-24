@@ -1,7 +1,8 @@
 from models.common import *
 from models import *
 from models.pointnet2.model_yanx27 import *
-
+import openshape
+import torch
 
 
 def get_feature_encoder(args):
@@ -29,6 +30,8 @@ def get_feature_encoder(args):
         # return get_pn2_msg_encoder(input_channels=0, use_xyz=True)
         # TODO: using a different pointnet++ implementation because the previous one is not working on colab!
         return Pointnet2_MSG_Y(normal_channel=False)
+    elif args.ENCO_NAME.lower() == 'openshape':
+        return openshape.load_pc_encoder(args.checkpoint) #Parameterize
     elif args.ENCO_NAME.lower() == 'pn2-msgabn':
         raise NotImplementedError
         base_enco = get_pn2_msg_encoder(input_channels=0, use_xyz=True)
@@ -45,9 +48,13 @@ class Classifier(nn.Module):
         self.cs = cs  # for ARPL + CS
         if self.cs:
             args.ENCO_NAME += "ABN"  # load the ABN version of feature encoder
-
+        self.open_shape = True if args.ENCO_NAME.lower() == 'openshape' else False
         # encoder: [B,N,3] -> [B,C_In]
         self.enco = get_feature_encoder(args)
+        if self.open_shape:
+            self.ref_dev = next(self.enco.parameters()).device
+            for param in self.enco.parameters():
+              param.requires_grad = False
         print(f"Clf - feature encoder: {args.ENCO_NAME}")
         print(f"Clf Head - "
               f"num classes: {num_classes}, input dim: {self.in_dim}, act: {args.act}, dropout: {args.dropout}")
@@ -73,6 +80,9 @@ class Classifier(nn.Module):
             else:
                 self.penultimate = build_hyperspherical_proj(self.in_dim, 512, 256, p_drop=args.dropout, act=args.act)
             self.head = ARPLoss(256, num_classes)
+        elif loss == "CE_os":
+            self.penultimate = build_penultimate_os(self.in_dim, args.dropout, act=args.act)
+            self.head = build_cla_head_os(num_classes, args.dropout, act=args.act)
         else:
             raise NotImplementedError(f"Unknown loss type: {loss}")
 
@@ -80,10 +90,29 @@ class Classifier(nn.Module):
         if self.cs:
             feat = self.enco(x, bn_label)
             penultimate = self.penultimate(feat, bn_label)
+        if self.open_shape:
+            #print(x.shape)
+            #input()
+            #ref_dev = next(self.enco.parameters()).device
+            # print("input",x.shape)
+            # pc = x.squeeze(0)
+            # print("squeezzato",pc.shape)
+            # input("")
+            # feat = self.enco(torch.tensor(pc[:, [0, 2, 1, 3, 4, 5]].T[None], device=self.ref_dev)).cpu()
+            # penultimate = np.array([self.enco(torch.tensor(pc[:, [0, 2, 1, 3, 4, 5]].T[None], device=self.ref_dev)).cpu() for pc in x[0]])
+            # FUNZIONA !!! feat = torch.stack([self.enco(torch.tensor(pc[:, [0, 2, 1, 3, 4, 5]].T[None], device=self.ref_dev)) for pc in x])
+            feat = self.enco(torch.tensor(x[:, :, [0, 2, 1, 3, 4, 5]].permute(0,2,1), device=self.ref_dev))
+            # print("feat",feat.shape)
+            # print("device", feat.device)
+            # input("")
+            penultimate = feat.squeeze(1)
+            # penultimate = feat
+            # print("penultimate",penultimate.shape)
+            # input("")
         else:
             feat = self.enco(x)
             penultimate = self.penultimate(feat)
-
+        
         if return_penultimate:
             return penultimate
 
