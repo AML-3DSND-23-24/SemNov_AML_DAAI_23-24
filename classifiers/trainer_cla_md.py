@@ -53,8 +53,8 @@ def get_args():
     parser.add_argument("--cs_beta", type=float, default=0.1, help="Beta loss weight for CS")
     parser.add_argument("--save_feats", type=str, default=None, help="Path where to save feats of penultimate layer")
 
-    parser.add_argument("--openshape", type=boolean, default=False, help="Choose if use OpenShape or not")
-    parser.add_argument("--aggregate", type=boolean, default=True, help="Choose if confidence analysis will aggregate for class or not")
+    parser.add_argument("--openshape", type=bool, default=False, help="Choose if use OpenShape or not")
+    parser.add_argument("--aggregate", type=bool, default=True, help="Choose if confidence analysis will aggregate for class or not")
 
     # Adopt Corrupted data
     # this flag should be set also during evaluation if testing Synth->Real Corr/LIDAR Augmented models
@@ -62,7 +62,10 @@ def get_args():
                         type=str, default=None, help="type of corrupted data (lidar,occlusion,all) - default is None")
     args = parser.parse_args()
 
-    args.data_root = os.path.expanduser(args.data_root)
+    #args.data_root = os.path.expanduser(args.data_root)
+    args.data_root = osp.abspath("3D_OS_release_data")
+    assert os.path.exists(args.data_root)
+    print(f"Data root: {args.data_root}")
     args.tar1 = "none"
     args.tar2 = "none"
 
@@ -491,7 +494,7 @@ def eval_ood_md2sonn(opt, config):
     classes_dict = eval(opt.src)
     n_classes = len(set(classes_dict.values()))
     model = Classifier(args=DotConfig(config['model']), num_classes=n_classes, loss=opt.loss, cs=opt.cs)
-    if(!opt.openshape) :
+    if not opt.openshape :
         ckt_weights = torch.load(opt.ckpt_path, map_location='cpu')['model']
         ckt_weights = sanitize_model_dict(ckt_weights)
         ckt_weights = convert_model_state(ckt_weights, model.state_dict())
@@ -500,7 +503,7 @@ def eval_ood_md2sonn(opt, config):
     
     model = model.cuda().eval()
 
-    if(!opt.openshape):
+    if not opt.openshape :
         src_logits, src_pred, src_labels = get_network_output(model, id_loader)
         tar1_logits, _, _ = get_network_output(model, ood1_loader)
         tar2_logits, _, _ = get_network_output(model, ood2_loader)
@@ -549,7 +552,7 @@ def eval_ood_md2sonn(opt, config):
     
 
     # FEATURES EVALUATION
-    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src)
+    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src, openshape=opt.openshape)
 
     return
 
@@ -570,7 +573,7 @@ def knn_custom(train_feats, src_feats, k, norm_k):
     
     return src_dist, src_ids
 
-def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_"):
+def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_", openshape=False):
     from knn_cuda import KNN
     knn = KNN(k=1, transpose_mode=True)
 
@@ -649,7 +652,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
          src=src
     )
 
-    if(!opt.openshape) :
+    if not openshape :
     
         print("#" * 80)
     
