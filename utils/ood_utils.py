@@ -272,31 +272,6 @@ def iterate_data_odin(model, loader, epsilon=0.0, temper=1000):
 
     return torch.tensor(np.array(confs)), torch.tensor(np.array(labels))
 
-    all_logits = []
-    all_pred = []
-    all_labels = []
-    model.eval()
-    for i, batch in enumerate(tqdm(loader, disable=DISABLE_TQDM), 0):
-        points, labels = batch[0], batch[1]
-        assert torch.is_tensor(points), "expected BNC tensor as batch[0]"
-        points = points.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
-        logits = model(points)
-        if is_dist() and get_ws() > 1:
-            logits = gather(logits, dim=0)
-            labels = gather(labels, dim=0)
-
-        all_logits.append(logits)
-        probs = F.softmax(logits, 1) if softmax else logits
-        _, pred = logits.data.max(1)
-        all_pred.append(pred)
-        all_labels.append(labels)
-    all_logits = torch.cat(all_logits, dim=0)
-    all_pred = torch.cat(all_pred, dim=0)
-    all_labels = torch.cat(all_labels, dim=0)
-    return all_logits, all_pred, all_labels
-
-
 def iterate_data_energy(model, loader, temper=1):
     """
     Source: https://github.com/deeplearning-wisc/gradnorm_ood
@@ -521,15 +496,21 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
               writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/misclassified[dick][micro_dick][0]
                 ,misclassified[dick][micro_dick][0],tot[dick]])
 
-def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_"):
+def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_", aggregate = True):
     """
     conf_list: [SRC, TAR1, TAR2]
     preds_list: [SRC, TAR1, TAR2]
     labels_list: [SRC, TAR1, TAR2]
     src_label: label for known samples when computing AUROC
     silent: if True does not print anything
+    src: if "_" does not compute excels for confidence analysis, choose beetwen SR1 and SR2 to know what classes are in distribution
+    aggregate: if src != "_", True aggregates confidences for classes, False gives puntual confidence of every prediction
     """
     
+    if aggregate:
+        get_acc = get_class_confidences
+    else:
+        get_acc = get_puntual_confidences
 
     if labels_list is None:
         labels_list = [None, None, None]
@@ -547,14 +528,12 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     tar2_conf, tar2_preds, tar2_labels = scores_list[2], preds_list[2], labels_list[2]
 
     if src != "_":
-        get_acc_per_class(src_conf,src_labels,src_preds,src,src,"id")
+        get_acc(src_conf,src_labels,src_preds,src,src,"id")
         if src == "SR1":
-            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR2","ood1")
+            get_acc(tar1_conf,tar1_labels,tar1_preds,src,"SR2","ood1")
         elif src == "SR2":
-            get_acc_per_class(tar1_conf,tar1_labels,tar1_preds,src,"SR1","ood1")
-        get_acc_per_class(tar2_conf,tar2_labels,tar2_preds,src,"ood_common","ood2")
-    else:
-      assert "ERRORE"    
+            get_acc(tar1_conf,tar1_labels,tar1_preds,src,"SR1","ood1")
+        get_acc_(tar2_conf,tar2_labels,tar2_preds,src,"ood_common","ood2")  
 
     # compute ID test accuracy
     src_acc, src_bal_acc = -1, -1
