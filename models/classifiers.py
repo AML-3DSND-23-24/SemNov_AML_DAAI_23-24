@@ -31,7 +31,7 @@ def get_feature_encoder(args):
         # TODO: using a different pointnet++ implementation because the previous one is not working on colab!
         return Pointnet2_MSG_Y(normal_channel=False)
     elif args.ENCO_NAME.lower() == 'openshape':
-        return openshape.load_pc_encoder(args.checkpoint) #Parameterize
+        return openshape.load_pc_encoder(args.checkpoint)
     elif args.ENCO_NAME.lower() == 'pn2-msgabn':
         raise NotImplementedError
         base_enco = get_pn2_msg_encoder(input_channels=0, use_xyz=True)
@@ -53,8 +53,6 @@ class Classifier(nn.Module):
         self.enco = get_feature_encoder(args)
         if self.open_shape:
             self.ref_dev = next(self.enco.parameters()).device
-            for param in self.enco.parameters():
-              param.requires_grad = False
         print(f"Clf - feature encoder: {args.ENCO_NAME}")
         print(f"Clf Head - "
               f"num classes: {num_classes}, input dim: {self.in_dim}, act: {args.act}, dropout: {args.dropout}")
@@ -80,9 +78,6 @@ class Classifier(nn.Module):
             else:
                 self.penultimate = build_hyperspherical_proj(self.in_dim, 512, 256, p_drop=args.dropout, act=args.act)
             self.head = ARPLoss(256, num_classes)
-        elif loss == "CE_os":
-            self.penultimate = build_penultimate_os(self.in_dim, args.dropout, act=args.act)
-            self.head = build_cla_head_os(num_classes, args.dropout, act=args.act)
         else:
             raise NotImplementedError(f"Unknown loss type: {loss}")
 
