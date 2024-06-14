@@ -54,6 +54,7 @@ def get_args():
     parser.add_argument("--save_feats", type=str, default=None, help="Path where to save feats of penultimate layer")
 
     parser.add_argument("--openshape", type=boolean, default=False, help="Choose if use OpenShape or not")
+    parser.add_argument("--aggregate", type=boolean, default=True, help="Choose if confidence analysis will aggregate for class or not")
 
     # Adopt Corrupted data
     # this flag should be set also during evaluation if testing Synth->Real Corr/LIDAR Augmented models
@@ -499,7 +500,7 @@ def eval_ood_md2sonn(opt, config):
     
     model = model.cuda().eval()
 
-    if(!opt.openshape) :
+    if(!opt.openshape):
         src_logits, src_pred, src_labels = get_network_output(model, id_loader)
         tar1_logits, _, _ = get_network_output(model, ood1_loader)
         tar2_logits, _, _ = get_network_output(model, ood2_loader)
@@ -606,7 +607,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
     # eucl distance in a non-normalized space
     
     # Calcola i k-NN utilizzando la distanza L0.1
-    norm_k = 1
+    norm_k = 2
     k = 1  # Numero di vicini da considerare, in questo caso 1 per nearest neighbor
     
     train_feats = train_feats.cuda()
@@ -648,30 +649,31 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
          src=src
     )
 
-    print("#" * 80)
+    if(!opt.openshape) :
+    
+        print("#" * 80)
+    
+        ################################################
+        print("\nCosine similarities on the hypersphere:")
+        # cosine sim in a normalized space
+        train_feats = F.normalize(train_feats, p=2, dim=1)
+        src_feats = F.normalize(src_feats, p=2, dim=1)
+        tar1_feats = F.normalize(tar1_feats, p=2, dim=1)
+        tar2_feats = F.normalize(tar2_feats, p=2, dim=1)
+        src_scores, src_ids = torch.mm(src_feats, train_feats.t()).max(1)
+        tar1_scores, tar1_ids = torch.mm(tar1_feats, train_feats.t()).max(1)
+        tar2_scores, tar2_ids = torch.mm(tar2_feats, train_feats.t()).max(1)
+        src_pred = np.asarray([train_labels[i] for i in src_ids])  # pred is label of nearest training sample
+        tar1_pred = np.asarray([train_labels[i] for i in tar1_ids])  # pred is label of nearest training sample
+        tar2_pred = np.asarray([train_labels[i] for i in tar2_ids])  # pred is label of nearest training sample
 
-    ################################################
-    print("\nCosine similarities on the hypersphere:")
-    # cosine sim in a normalized space
-    train_feats = F.normalize(train_feats, p=2, dim=1)
-    src_feats = F.normalize(src_feats, p=2, dim=1)
-    tar1_feats = F.normalize(tar1_feats, p=2, dim=1)
-    tar2_feats = F.normalize(tar2_feats, p=2, dim=1)
-    src_scores, src_ids = torch.mm(src_feats, train_feats.t()).max(1)
-    tar1_scores, tar1_ids = torch.mm(tar1_feats, train_feats.t()).max(1)
-    tar2_scores, tar2_ids = torch.mm(tar2_feats, train_feats.t()).max(1)
-    src_pred = np.asarray([train_labels[i] for i in src_ids])  # pred is label of nearest training sample
-    tar1_pred = np.asarray([train_labels[i] for i in tar1_ids])  # pred is label of nearest training sample
-    tar2_pred = np.asarray([train_labels[i] for i in tar2_ids])  # pred is label of nearest training sample
-
-    eval_ood_sncore(
-        scores_list=[(0.5 * src_scores + 0.5).cpu(), (0.5 * tar1_scores + 0.5).cpu(), (0.5 * tar2_scores + 0.5).cpu()],
-        preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
-        labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
-        src_label=1,  # confidence should be higher for ID samples
-        src = src
-    )
-
+        eval_ood_sncore(
+            scores_list=[(0.5 * src_scores + 0.5).cpu(), (0.5 * tar1_scores + 0.5).cpu(), (0.5 * tar2_scores + 0.5).cpu()],
+            preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
+            labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
+            src_label=1,  # confidence should be higher for ID samples
+            src = src
+        )
 
 def main():
     args = get_args()
