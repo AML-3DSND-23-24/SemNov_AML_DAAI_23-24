@@ -3,6 +3,8 @@ import os.path as osp
 from utils.data_utils import *
 import h5py
 
+import numpy as np
+
 # ALL SONN LABELS
 SONN_label_dict = {
     "bag": 0, "bin": 1, "box": 2,
@@ -174,6 +176,8 @@ class ScanObject(data.Dataset):
         self.sonn_split = sonn_split
         self.h5_file = h5_file
         self.class_choice = class_choice
+        
+        self.openshape = openshape
 
         if self.split == "train":
             h5_file_path = [osp.join(self.data_dir, sonn_split, f"training_{h5_file}")]
@@ -222,8 +226,12 @@ class ScanObject(data.Dataset):
         # sampling
         point_set = random_sample(points=point_set, num_points=self.num_points)
 
-        # unit cube normalization
-        point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])
+        if not self.openshape:
+          # unit cube normalization
+          point_set = pc_normalize(point_set)
+        else: #As in https://huggingface.co/OpenShape/openshape-demo-support/blob/main/openshape/demo/misc_utils.py
+          point_set[:, :3] = point_set[:, :3] - np.mean(point_set[:, :3], axis=0)
+          point_set[:, :3] = point_set[:, :3] / np.linalg.norm(point_set[:, :3], axis=-1).max()
 
         # data augm
         if self.transforms:
