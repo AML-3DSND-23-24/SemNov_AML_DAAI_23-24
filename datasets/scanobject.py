@@ -119,21 +119,21 @@ SR23 = {
 
 ################################
 
-
-def load_h5_data_label(h5_path):
+def load_h5_data_label(h5_path, openshape=False):
     f = h5py.File(h5_path, 'r')
     curr_data = f['data'][:]
     curr_label = f['label'][:]
     f.close()
+    
     # zeros = np.zeros((curr_data.shape[0], 3))
-    zeros = np.full((curr_data.shape[0], 3), 0.4)
-    print("BEFORE", curr_data.shape)
-    curr_data_with_zeros = np.concatenate((curr_data, zeros), axis=1)
-    print("AFTER", curr_data_with_zeros.shape)
+    if(openshape):
+        zeros = np.full((curr_data.shape[0], 3), 0.4)
+        curr_data_with_zeros = np.concatenate((curr_data, zeros), axis=1)
+        
     return np.asarray(curr_data_with_zeros), np.asarray(curr_label)
 
 
-def load_h5_data_label_list(h5_paths):
+def load_h5_data_label_list(h5_paths, openshape=False):
     curr_data = []
     curr_label = []
     for curr_h5 in h5_paths:
@@ -141,12 +141,13 @@ def load_h5_data_label_list(h5_paths):
         curr_data.extend(f['data'][:])
         curr_label.extend(f['label'][:])
         f.close()
-    curr_data = np.asarray(curr_data)
-    print(curr_data.shape)
-    #zeros = np.zeros((curr_data.shape[0], curr_data.shape[1], 3))
-    zeros = np.full((curr_data.shape[0], curr_data.shape[1], 3), 0.4)
-    curr_data = np.concatenate((curr_data, zeros), axis=2)
-    print(curr_data.shape)
+    
+    if(openshape):
+        curr_data = np.asarray(curr_data)
+        #zeros = np.zeros((curr_data.shape[0], curr_data.shape[1], 3))
+        zeros = np.full((curr_data.shape[0], curr_data.shape[1], 3), 0.4)
+        curr_data = np.concatenate((curr_data, zeros), axis=2)
+
     return np.asarray(curr_data), np.asarray(curr_label)
 
 
@@ -159,7 +160,9 @@ class ScanObject(data.Dataset):
             split="train",
             class_choice=None,
             num_points=1024,
-            transforms=None):
+            transforms=None,
+            openshape=False
+    ):
 
         self.whoami = "ScanObject"
         assert split in ['train', 'test', 'all']
@@ -184,9 +187,9 @@ class ScanObject(data.Dataset):
 
         # LOAD ALL DATA IN MEMORY
         if isinstance(h5_file_path, list):
-            self.datas, self.labels = load_h5_data_label_list(h5_file_path)
+            self.datas, self.labels = load_h5_data_label_list(h5_file_path, self.openshape)
         else:
-            self.datas, self.labels = load_h5_data_label(h5_file_path)
+            self.datas, self.labels = load_h5_data_label(h5_file_path, self.openshape)
 
         # CLASS CHOICE
         if self.class_choice is not None:
