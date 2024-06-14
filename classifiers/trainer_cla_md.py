@@ -164,7 +164,8 @@ def get_md_loaders(opt):
         train=True,
         num_points=10000,  # sampling as data augm
         class_choice=opt.src,  # modelnet40 or modelnet10,
-        transforms=train_transforms
+        transforms=train_transforms,
+        openshape = opt.openshape
     )
 
     print(f"{opt.src} train_data len: {len(train_data)}")
@@ -184,7 +185,8 @@ def get_md_loaders(opt):
         train=False,
         num_points=opt.num_points,
         class_choice=opt.src,
-        transforms=None)
+        transforms=None,
+        openshape = opt.openshape)
 
     train_sampler = DistributedSampler(train_data, num_replicas=ws, rank=rank, shuffle=True)
     test_sampler = DistributedSampler(test_data, num_replicas=ws, rank=rank, shuffle=True)
@@ -207,7 +209,8 @@ def get_md_eval_loaders(opt):
         train=True,
         num_points=opt.num_points,
         class_choice=opt.src,
-        transforms=None)
+        transforms=None,
+        openshape = opt.openshape)
 
     print(f"{opt.src} train data len: {len(train_data)}")
 
@@ -226,7 +229,8 @@ def get_md_eval_loaders(opt):
         train=False,
         num_points=opt.num_points,
         class_choice=opt.src,
-        transforms=None)
+        transforms=None,
+        openshape=opt.openshape)
 
     train_loader = DataLoader(train_data, batch_size=opt.batch_size, num_workers=opt.num_workers,
                               worker_init_fn=init_np_seed, shuffle=False, drop_last=False)
@@ -473,7 +477,8 @@ def eval_ood_md2sonn(opt, config):
         'h5_file': opt.sonn_h5_name,
         'split': 'all',  # we use both training (unused) and test samples during evaluation
         'num_points': opt.num_points_test,  # default: use all 2048 sonn points to avoid sampling randomicity
-        'transforms': None  # no augmentation applied at inference time
+        'transforms': None,  # no augmentation applied at inference time
+        'openshape' : opt.openshape
     }
 
     train_loader, _ = get_md_eval_loaders(opt)
@@ -520,7 +525,8 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
-            src = opt.src) # src = "_" to not compute excels
+            aggregate = opt.aggregate,
+            src = opt.src,) # src = "_" to not compute excels
         print("#" * 80)
 
         # MLS
@@ -534,6 +540,7 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
+            aggregate = opt.aggregate,
             src = opt.src) # src = "_" to not compute excels
         print("#" * 80)
     
@@ -548,12 +555,13 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
+            aggregate = opt.aggregate,
             src = opt.src) # src = "_" to not compute excels
         print("#" * 80)
     
 
     # FEATURES EVALUATION
-    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src, openshape=opt.openshape)
+    eval_OOD_with_feats(model, train_loader, id_loader, ood1_loader, ood2_loader, save_feats=opt.save_feats, src=opt.src, openshape=opt.openshape, aggregate=opt.aggregate)
 
     return
 
@@ -574,7 +582,7 @@ def knn_custom(train_feats, src_feats, k, norm_k):
     
     return src_dist, src_ids
 
-def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_", openshape=False):
+def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_", openshape=False, aggregate = True):
     #from knn_cuda import KNN
     #knn = KNN(k=1, transpose_mode=True)
 
@@ -635,6 +643,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
          preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
          labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
          src_label=1,  # confidence should be higher for ID samples
+         aggregate = aggregate,
          src=src # src = "_" to not compute excels
     )
 
@@ -661,6 +670,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
             preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
             labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
             src_label=1,  # confidence should be higher for ID samples
+            aggregate = aggregate,
             src = src # src = "_" to not compute excels
         )
 
