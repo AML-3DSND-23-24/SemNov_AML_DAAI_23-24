@@ -6,6 +6,7 @@ from utils.data_utils import *
 import lmdb
 import msgpack_numpy
 import h5py
+
 import numpy as np
 
 modelnet40_label_dict = {
@@ -196,7 +197,7 @@ class ModelNet40_OOD(data.Dataset):
     Not using LMDB cache!
     """
 
-    def __init__(self, num_points, data_root=None, transforms=None, train=True, class_choice="SR1"):
+    def __init__(self, num_points, data_root=None, transforms=None, train=True, class_choice="SR1", openshape=False):
         super().__init__()
         self.whoami = "ModelNet40_OOD"
         self.split = "train" if train else "test"
@@ -207,6 +208,7 @@ class ModelNet40_OOD(data.Dataset):
         self.class_choice = eval(class_choice)
         assert isinstance(self.class_choice, dict)
         self.num_classes = len(set(self.class_choice.values()))
+        self.openshape = openshape
         # reading data
         self.data_dir = os.path.join(data_root, "modelnet40_normal_resampled")
         if not osp.exists(self.data_dir):
@@ -214,7 +216,7 @@ class ModelNet40_OOD(data.Dataset):
         # cache
         cache_dir = osp.join(self.data_dir, "ood_sets_cache")  # directory containing cache files
         cache_fn = osp.join(cache_dir, f'{class_choice}_{self.split}.h5')  # path to cache file
-        if False : #os.path.exists(cache_fn):
+        if False:#os.path.exists(cache_fn):
             # read from cache file
             print(f"{self.whoami} - Reading data from h5py file: {cache_fn}")
             f = h5py.File(cache_fn, 'r')
@@ -255,16 +257,16 @@ class ModelNet40_OOD(data.Dataset):
             self.labels = []
             for i in tqdm.trange(len(self.datapath), desc=f"{self.whoami} loading data from txts", dynamic_ncols=True):
                 fn = self.datapath[i]
-                pc = np.loadtxt(fn[1], delimiter=",").astype(np.float32)
-                # point_set = point_set[:, 0:3]  # remove normals
-                pc[:, :3] = pc[:, :3] - np.mean(pc[:, :3], axis=0)
-                pc[:, :3] = pc[:, :3] / np.linalg.norm(pc[:, :3], axis=-1).max()
-                if pc.shape[1] == 3:
-                  print("NO RGB")
-                  pc = np.concatenate([pc, np.ones_like(pc) * 0.4], axis=-1)
+                
+                point_set = np.loadtxt(fn[1], delimiter=",").astype(np.float32)
+                point_set = point_set[:, 0:3]  # remove normals
+              
+                if point_set.shape[1] == 3 and self.openshape:
+                  point_set = np.concatenate([point_set, np.ones_like(point_set) * 0.4], axis=-1)
+                
                 category_name = self.shape_names[i]  # 'airplane'
                 cls = self.class_choice[category_name]
-                self.datas.append(pc)  # [1, 10000, 3]
+                self.datas.append(point_set)  # [1, 10000, 3]
                 self.labels.append(cls)
 
             self.datas = np.stack(self.datas, axis=0)  # [num_samples, 10000, 3]
@@ -293,8 +295,12 @@ class ModelNet40_OOD(data.Dataset):
         # sampling
         point_set = random_sample(point_set, num_points=self.num_points)
 
-        # unit cube normalization
-        point_set = pc_normalize(point_set)
+        if not self.openshape:
+          # unit cube normalization
+          point_set = pc_normalize(point_set)
+        else: #As in https://huggingface.co/OpenShape/openshape-demo-support/blob/main/openshape/demo/misc_utils.py
+          point_set[:, :3] = point_set[:, :3] - np.mean(point_set[:, :3], axis=0)
+          point_set[:, :3] = point_set[:, :3] / np.linalg.norm(point_set[:, :3], axis=-1).max()
 
         # data augm
         if self.transforms:
