@@ -63,40 +63,6 @@ def build_cla_head(num_classes, p_drop, act='leakyrelu'):
         nn.Linear(256, num_classes)
     )
 
-def build_penultimate_os(in_dim, p_drop, act='hardswish'):
-    """Create a projector for models using a standard CE loss
-
-    Args:
-        in_dim (int): number of input dims
-        p_drop (float): dropout probability
-        act (str): activation function to apply
-    """
-    return nn.Sequential(
-        nn.Linear(1280, 512, bias=False),
-        nn.BatchNorm1d(512),
-        get_activation(act),
-        nn.Dropout(p=p_drop),
-        nn.Linear(512, 256, bias=False)
-    )
-
-
-def build_cla_head_os(num_classes, p_drop, act='leakyrelu'):
-    """Create a classification head for models using a standard CE loss
-
-    Args:
-        num_classes (int): number of classification outputs
-        p_drop (float): dropout probability
-        act (str): activation function to apply
-    """
-
-    return nn.Sequential(
-        nn.BatchNorm1d(256),
-        get_activation(act),
-        nn.Dropout(p=p_drop),
-        nn.Linear(256, num_classes)
-    )
-
-
 def build_hyperspherical_proj(in_dim, hidden_dim, output_dim, p_drop, act='leakyrelu'):
     """Create a projector for models using an hyperspherical features space 
     i.e.: supcon, cosface, arcface, ecc
