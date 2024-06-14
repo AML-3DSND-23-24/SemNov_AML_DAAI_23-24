@@ -6,6 +6,7 @@ import numpy as np
 sys.path.append(os.getcwd())
 import os.path as osp
 import time
+import torch
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
@@ -505,8 +506,8 @@ def eval_ood_md2sonn(opt, config):
 
     if not opt.openshape :
         src_logits, src_pred, src_labels = get_network_output(model, id_loader)
-        tar1_logits, _, _ = get_network_output(model, ood1_loader)
-        tar2_logits, _, _ = get_network_output(model, ood2_loader)
+        tar1_logits, tar1_pred, tar1_labels = get_network_output(model, ood1_loader)
+        tar2_logits, tar2_pred, tar2_labels = get_network_output(model, ood2_loader)
 
         # MSP
         print("\n" + "#" * 80)
@@ -519,7 +520,7 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
-            src = opt.src)
+            src = opt.src) # src = "_" to not compute excels
         print("#" * 80)
 
         # MLS
@@ -533,7 +534,7 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
-            src = opt.src)
+            src = opt.src) # src = "_" to not compute excels
         print("#" * 80)
     
         # entropy
@@ -547,7 +548,7 @@ def eval_ood_md2sonn(opt, config):
             preds_list=[src_pred, tar1_pred, tar2_pred],  # computes also MSP accuracy on ID test set
             labels_list=[src_labels, tar1_labels, tar2_labels],  # computes also MSP accuracy on ID test set
             src_label=1,
-            src = opt.src)
+            src = opt.src) # src = "_" to not compute excels
         print("#" * 80)
     
 
@@ -574,8 +575,8 @@ def knn_custom(train_feats, src_feats, k, norm_k):
     return src_dist, src_ids
 
 def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loader, save_feats=None, src="_", openshape=False):
-    from knn_cuda import KNN
-    knn = KNN(k=1, transpose_mode=True)
+    #from knn_cuda import KNN
+    #knn = KNN(k=1, transpose_mode=True)
 
     print("\n" + "#" * 80)
     print("Computing OOD metrics with distance from train features...")
@@ -587,21 +588,6 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
     tar1_feats, tar1_labels = get_penultimate_feats(model, tar1_loader)
     tar2_feats, tar2_labels = get_penultimate_feats(model, tar2_loader)
     train_labels = train_labels.cpu().numpy()
-
-    if save_feats is not None:
-         if isinstance(train_loader.dataset, ModelNet40_OOD):
-             labels_2_names = {v: k for k, v in train_loader.dataset.class_choice.items()}
-         else:
-             labels_2_names = {}
-
-         output_dict = {}
-         output_dict["labels_2_names"] = labels_2_names
-         output_dict["train_feats"], output_dict["train_labels"] = train_feats.cpu(), train_labels
-         output_dict["id_data_feats"], output_dict["id_data_labels"] = src_feats.cpu(), src_labels
-         output_dict["ood1_data_feats"], output_dict["ood1_data_labels"] = tar1_feats.cpu(), tar1_labels
-         output_dict["ood2_data_feats"], output_dict["ood2_data_labels"] = tar2_feats.cpu(), tar2_labels
-         torch.save(output_dict, save_feats)
-         print(f"Features saved to {save_feats}")
 
     ################################################
 
@@ -649,7 +635,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
          preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
          labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
          src_label=1,  # confidence should be higher for ID samples
-         src=src
+         src=src # src = "_" to not compute excels
     )
 
     if not openshape :
@@ -675,7 +661,7 @@ def eval_OOD_with_feats(model, train_loader, src_loader, tar1_loader, tar2_loade
             preds_list=[src_pred, tar1_pred, tar2_pred],  # [src_pred, None, None],
             labels_list=[src_labels, tar1_labels, tar2_labels],  # [src_labels, None, None],
             src_label=1,  # confidence should be higher for ID samples
-            src = src
+            src = src # src = "_" to not compute excels
         )
 
 def main():
