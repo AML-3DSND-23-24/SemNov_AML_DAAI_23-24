@@ -1,0 +1,97 @@
+Cannot import torchlars
+Cannot load RSCNN: No module named 'pointnet2_ops'
+Cannot load PCT: No module named 'pointnet2_ops'
+Cannot load PointMLP: No module named 'pointnet2_ops'
+Cannot load PointNet2: No module named 'pointnet2_ops'
+Data root: /content/SemNov_AML_DAAI_23-24/3D_OS_release_data
+out-of-distribution eval - Modelnet -> SONN ..
+Arguments: Namespace(local_rank=None, use_sync_bn=False, use_amp=False, script_mode='eval', config='cfgs/dgcnn-cla.yaml', seed=1, epochs=250, batch_size=1, num_workers=4, resume=None, apply_fix_cellphone=True, data_root='/content/SemNov_AML_DAAI_23-24/3D_OS_release_data', checkpoints_dir='outputs', exp_name='DGCNN_CE_SR2_NO_CORR', eval_step=1, save_step=10, ckpt_path='outputs/DGCNN_CE_SR2_NO_CORR//models/model_best.pth', src='SR2', sonn_split='main_split', sonn_h5_name='objectdataset.h5', augm_set='rw', grad_norm_clip=-1, num_points=1024, num_points_test=2048, wandb_name=None, wandb_group='md-2-sonn-augmCorr', wandb_proj='benchmark-3d-ood-cla', loss='CE', cs=False, cs_gan_lr=0.0002, cs_beta=0.1, save_feats=None, corruption=None, tar1='none', tar2='none')
+ModelNet40_OOD - Reading data from h5py file: /content/SemNov_AML_DAAI_23-24/3D_OS_release_data/modelnet40_normal_resampled/ood_sets_cache/SR2_train.h5
+ModelNet40_OOD - split: train, categories: {'bed': 0, 'toilet': 1, 'desk': 2, 'monitor': 3, 'table': 2}
+SR2 train data len: 1916
+ModelNet40_OOD - Reading data from h5py file: /content/SemNov_AML_DAAI_23-24/3D_OS_release_data/modelnet40_normal_resampled/ood_sets_cache/SR2_test.h5
+ModelNet40_OOD - split: test, categories: {'bed': 0, 'toilet': 1, 'desk': 2, 'monitor': 3, 'table': 2}
+Src is SR2
+
+ScanObject - num_points: 2048, sonn_split: main_split, h5_suffix: objectdataset.h5, split: all, class_choice: {10: 0, 14: 1, 5: 2, 6: 3, 9: 2}, num samples: 788
+ScanObject - num_points: 2048, sonn_split: main_split, h5_suffix: objectdataset.h5, split: all, class_choice: {4: 0, 8: 1, 7: 2, 12: 3, 13: 4}, num samples: 1255
+ScanObject - num_points: 2048, sonn_split: main_split, h5_suffix: objectdataset.h5, split: all, class_choice: {0: 0, 1: 1, 2: 2, 3: 3, 11: 4}, num samples: 847
+dgcnn k: 20
+dgcnn emb_dims: 1024
+Clf - feature encoder: DGCNN
+Clf Head - num classes: 4, input dim: 2048, act: leakyrelu, dropout: 0.5
+Model params count: 1.8001 M
+Load weights:  <All keys matched successfully>
+100% 788/788 [00:05<00:00, 140.00it/s]
+100% 1255/1255 [00:08<00:00, 151.96it/s]
+100% 847/847 [00:05<00:00, 146.75it/s]
+
+################################################################################
+Computing OOD metrics with MSP normality score...
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.6713197969543148, Clf Bal Acc: 0.5853040440023326
+SRC->TAR1:      AUROC: 0.5702, FPR95: 0.9147, AUPR_IN: 0.4544, AUPR_OUT: 0.6643
+SRC->TAR2:      AUROC: 0.5488, FPR95: 0.9469, AUPR_IN: 0.5486, AUPR_OUT: 0.5405
+SRC->TAR1+TAR2: AUROC: 0.5616, FPR95: 0.9277, AUPR_IN: 0.3340, AUPR_OUT: 0.7588
+to spreadsheet: 0.5702186179141303,0.9147410358565737,0.454352178957687,0.664255042173649,0.5487979371804937,0.9468713105076741,0.5485965054466825,0.5405127663460447,0.5615871637840684,0.9276879162702188,0.3340235094121897,0.7588023113832953
+################################################################################
+
+################################################################################
+Computing OOD metrics with MLS normality score...
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.6713197969543148, Clf Bal Acc: 0.5853040440023326
+SRC->TAR1:      AUROC: 0.6079, FPR95: 0.9116, AUPR_IN: 0.4891, AUPR_OUT: 0.6874
+SRC->TAR2:      AUROC: 0.5257, FPR95: 0.9646, AUPR_IN: 0.5388, AUPR_OUT: 0.5164
+SRC->TAR1+TAR2: AUROC: 0.5747, FPR95: 0.9329, AUPR_IN: 0.3491, AUPR_OUT: 0.7634
+to spreadsheet: 0.6078629643861104,0.9115537848605577,0.4891018520054639,0.6874258391146097,0.525681863129948,0.9645808736717828,0.5388294876264995,0.5163705604942768,0.5747481248219003,0.9329210275927687,0.34909744033344975,0.7633754524989533
+################################################################################
+
+################################################################################
+Computing OOD metrics with entropy normality score...
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.6713197969543148, Clf Bal Acc: 0.5853040440023326
+SRC->TAR1:      AUROC: 0.5754, FPR95: 0.8988, AUPR_IN: 0.4568, AUPR_OUT: 0.6717
+SRC->TAR2:      AUROC: 0.5438, FPR95: 0.9528, AUPR_IN: 0.5470, AUPR_OUT: 0.5298
+SRC->TAR1+TAR2: AUROC: 0.5627, FPR95: 0.9206, AUPR_IN: 0.3348, AUPR_OUT: 0.7593
+to spreadsheet: 0.5754019455174226,0.8988047808764941,0.4568337529249763,0.6717434443898219,0.5438169352567137,0.9527744982290437,0.5470200964355889,0.5297738799642309,0.5626747791564234,0.9205518553758325,0.3348020595549732,0.7593235325016006
+################################################################################
+/usr/local/lib/python3.10/dist-packages/torch/utils/cpp_extension.py:1967: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+
+################################################################################
+Computing OOD metrics with distance from train features...
+100% 788/788 [00:05<00:00, 150.52it/s]
+100% 1916/1916 [00:08<00:00, 216.91it/s]
+100% 1255/1255 [00:08<00:00, 150.22it/s]
+100% 847/847 [00:05<00:00, 149.23it/s]
+Euclidean distances in a non-normalized space:
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.6928934010152284, Clf Bal Acc: 0.5677448996476082
+SRC->TAR1:      AUROC: 0.5806, FPR95: 0.9490, AUPR_IN: 0.4802, AUPR_OUT: 0.6554
+SRC->TAR2:      AUROC: 0.6036, FPR95: 0.8855, AUPR_IN: 0.5759, AUPR_OUT: 0.6100
+SRC->TAR1+TAR2: AUROC: 0.5898, FPR95: 0.9234, AUPR_IN: 0.3582, AUPR_OUT: 0.7755
+to spreadsheet: 0.5805660606305741,0.949003984063745,0.4802111275613832,0.6554328970450675,0.6035724773611253,0.885478158205431,0.5758680381573887,0.6100040320634481,0.5898364864016383,0.923406279733587,0.35820051244812645,0.7754888829970764
+
+Cosine similarities on the hypersphere:
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.6890862944162437, Clf Bal Acc: 0.5818866898472073
+SRC->TAR1:      AUROC: 0.6186, FPR95: 0.8749, AUPR_IN: 0.5185, AUPR_OUT: 0.7043
+SRC->TAR2:      AUROC: 0.5685, FPR95: 0.9433, AUPR_IN: 0.5458, AUPR_OUT: 0.5591
+SRC->TAR1+TAR2: AUROC: 0.5984, FPR95: 0.9025, AUPR_IN: 0.3631, AUPR_OUT: 0.7839
+to spreadsheet: 0.6185830282929197,0.8749003984063745,0.5184726700089392,0.7042750297330835,0.5685429014916785,0.9433293978748524,0.5458390003986076,0.5591349442504429,0.5984193806237231,0.9024738344433872,0.3630555430088916,0.7839120177640395

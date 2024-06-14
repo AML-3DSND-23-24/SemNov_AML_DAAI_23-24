@@ -1,0 +1,56 @@
+################################################################################
+Computing OOD metrics with MLS normality score...
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.8489847715736041, Clf Bal Acc: 0.8179843352832168
+SRC->TAR1:      AUROC: 0.5605, FPR95: 0.9347, AUPR_IN: 0.4478, AUPR_OUT: 0.6522
+SRC->TAR2:      AUROC: 0.6200, FPR95: 0.9020, AUPR_IN: 0.5834, AUPR_OUT: 0.6168
+SRC->TAR1+TAR2: AUROC: 0.5845, FPR95: 0.9215, AUPR_IN: 0.3380, AUPR_OUT: 0.7757
+to spreadsheet: 0.5605031650049548,0.9346613545816733,0.44777067477384574,0.6522027561378126,0.6200077610437555,0.9020070838252656,0.5834208866323523,0.6168134894624431,0.5844805165010842,0.9215033301617507,0.33800568515929563,0.7756744921985628
+################################################################################
+
+################################################################################
+Computing OOD metrics with entropy normality score...
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.8489847715736041, Clf Bal Acc: 0.8179843352832168
+SRC->TAR1:      AUROC: 0.5810, FPR95: 0.9243, AUPR_IN: 0.4455, AUPR_OUT: 0.6674
+SRC->TAR2:      AUROC: 0.6703, FPR95: 0.8796, AUPR_IN: 0.6399, AUPR_OUT: 0.6560
+SRC->TAR1+TAR2: AUROC: 0.6170, FPR95: 0.9063, AUPR_IN: 0.3569, AUPR_OUT: 0.7938
+to spreadsheet: 0.5809563775355431,0.9243027888446215,0.44547640152192763,0.6673611588313277,0.6703009726775302,0.8795749704840614,0.639920307368921,0.6560050825012412,0.6169577438938986,0.9062797335870599,0.35686251056773843,0.7937784125885934
+################################################################################
+/usr/local/lib/python3.10/dist-packages/torch/utils/cpp_extension.py:1967: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+
+################################################################################
+Computing OOD metrics with distance from train features...
+100% 788/788 [00:05<00:00, 154.24it/s]
+100% 1916/1916 [00:09<00:00, 210.54it/s]
+100% 1255/1255 [00:08<00:00, 153.73it/s]
+100% 847/847 [00:05<00:00, 152.35it/s]
+Euclidean distances in a non-normalized space:
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.7956852791878173, Clf Bal Acc: 0.81169351355647
+SRC->TAR1:      AUROC: 0.6992, FPR95: 0.7625, AUPR_IN: 0.5666, AUPR_OUT: 0.7946
+SRC->TAR2:      AUROC: 0.7138, FPR95: 0.7591, AUPR_IN: 0.6669, AUPR_OUT: 0.7318
+SRC->TAR1+TAR2: AUROC: 0.7051, FPR95: 0.7612, AUPR_IN: 0.4463, AUPR_OUT: 0.8643
+to spreadsheet: 0.6992077375776083,0.7625498007968128,0.5665718117767883,0.7946086520793798,0.7138092641092179,0.7591499409681228,0.6668996739208523,0.7318130547962506,0.7050914164416775,0.7611798287345385,0.4462714621293663,0.8643126808542119
+
+Cosine similarities on the hypersphere:
+AUROC - Src label: 1, Tar label: 0
+SR2 over SR2 as id
+SR2 over SR1 as ood1
+SR2 over ood_common as ood2
+Src Test - Clf Acc: 0.7880710659898477, Clf Bal Acc: 0.7814444244810772
+SRC->TAR1:      AUROC: 0.6180, FPR95: 0.9578, AUPR_IN: 0.5712, AUPR_OUT: 0.6596
+SRC->TAR2:      AUROC: 0.6409, FPR95: 0.9209, AUPR_IN: 0.6360, AUPR_OUT: 0.6225
+SRC->TAR1+TAR2: AUROC: 0.6272, FPR95: 0.9429, AUPR_IN: 0.4437, AUPR_OUT: 0.7812
+to spreadsheet: 0.6179859243230125,0.9577689243027888,0.571226063458361,0.6596432278170243,0.6409041466148064,0.9208972845336482,0.6360153830374248,0.6225164811663826,0.6272208121827412,0.9429115128449096,0.4436605587982293,0.7812186981732634
