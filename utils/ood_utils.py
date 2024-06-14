@@ -444,7 +444,7 @@ def get_ood_metrics(src_scores, tar_scores, src_label=1):
     scores = np.concatenate([src_scores, tar_scores], axis=0)
     return calc_metrics(scores, labels)
 
-def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
+def get_acc(conf,labels,preds,src,rocco_dict,postfix, aggregate=False):
     print(f"{src} over {rocco_dict} as {postfix}")
     dic_sr1 = {
       0: "chair",
@@ -477,25 +477,39 @@ def get_acc_per_class(conf,labels,preds,src,rocco_dict,postfix):
     np_labels = to_numpy(labels)
     np_preds = to_numpy(preds)
 
-    misclassified = defaultdict(lambda: defaultdict(lambda: [0, 0.0]))  #Class -> (Pred_Tot,Conf_Tot) COUNTER!!!
-    tot = defaultdict(int)
+    if(aggregate):
+        misclassified = defaultdict(lambda: defaultdict(lambda: [0, 0.0]))
+        tot = defaultdict(int)
 
-    for i, _ in enumerate(np_conf):
-        misclassified[np_labels[i]][np_preds[i]][0] += 1
-        misclassified[np_labels[i]][np_preds[i]][1] += np_conf[i]
-        tot[np_labels[i]] += 1
+        for i, _ in enumerate(np_conf):
+            misclassified[np_labels[i]][np_preds[i]][0] += 1
+            misclassified[np_labels[i]][np_preds[i]][1] += np_conf[i]
+            tot[np_labels[i]] += 1
 
-    # open the file in the write mode
-    with open(f"{src}"+"_"+f"{postfix}.csv", 'a', encoding='UTF8') as f:
-        # create the csv writer
-        writer = csv.writer(f)
+        # open the file in the write mode
+        with open(f"{src}"+"_"+f"{postfix}.csv", 'a', encoding='UTF8') as f:
+            # create the csv writer
+            writer = csv.writer(f)
 
-        writer.writerow(["Class", "Prediction", "Avg_Conf" , "Pred_Tot", "Class_Tot"])
-        for dick in misclassified.keys():
-            for micro_dick in misclassified[dick].keys():
-              writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/misclassified[dick][micro_dick][0]
-                ,misclassified[dick][micro_dick][0],tot[dick]])
+            writer.writerow(["Class", "Prediction", "Avg_Conf" , "Pred_Tot", "Class_Tot"])
+            for dick in misclassified.keys():
+                for micro_dick in misclassified[dick].keys():
+                  writer.writerow([ground_truth[dick],dic[micro_dick],misclassified[dick][micro_dick][1]/misclassified[dick][micro_dick][0]
+                    ,misclassified[dick][micro_dick][0],tot[dick]])
 
+    else:
+        # open the file in the write mode
+        with open(f"{src}"+"_"+f"{postfix}.csv", 'a', encoding='UTF8') as f:
+            # create the csv writer
+            writer = csv.writer(f)
+            writer.writerow(["Class", "Prediction", "Conf"])
+            for i, _ in enumerate(np_conf):
+              writer.writerow([
+                ground_truth[np_labels[i]],
+                dic[np_preds[i]],
+                np_conf[i],
+                ])
+                
 def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1, silent=False, src = "_", aggregate = True):
     """
     conf_list: [SRC, TAR1, TAR2]
@@ -503,14 +517,9 @@ def eval_ood_sncore(scores_list, preds_list=None, labels_list=None, src_label=1,
     labels_list: [SRC, TAR1, TAR2]
     src_label: label for known samples when computing AUROC
     silent: if True does not print anything
-    src: if "_" does not compute excels for confidence analysis, choose beetwen SR1 and SR2 to know what classes are in distribution
-    aggregate: if src != "_", True aggregates confidences for classes, False gives puntual confidence of every prediction
+    src: if "_" does not compute Excels for confidence analysis, choose beetwen [SR1,SR2] to know what classes are in TAR1
+    aggregate: if src != "_", True aggregates confidences for classes in computed Exceks, False gives puntual confidence of every prediction
     """
-    
-    if aggregate:
-        get_acc = get_class_confidences
-    else:
-        get_acc = get_puntual_confidences
 
     if labels_list is None:
         labels_list = [None, None, None]
