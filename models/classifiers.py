@@ -1,7 +1,6 @@
 from models.common import *
 from models import *
 from models.pointnet2.model_yanx27 import *
-import openshape
 import torch
 
 
@@ -31,6 +30,7 @@ def get_feature_encoder(args):
         # TODO: using a different pointnet++ implementation because the previous one is not working on colab!
         return Pointnet2_MSG_Y(normal_channel=False)
     elif args.ENCO_NAME.lower() == 'openshape':
+        import openshape
         return openshape.load_pc_encoder(args.checkpoint)
     elif args.ENCO_NAME.lower() == 'pn2-msgabn':
         raise NotImplementedError
